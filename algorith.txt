@@ -1,23 +1,25 @@
-for checking if number in range (minInt64,maxInt64)
+/*------for checking if number in range (minInt64,maxInt64)----*/
 	MAX_EXPONENT = 62
 	MANTISSA_BITNUM = 52
 	exponent = exp - bias
-	if(exponent>0){
-		if(exponent > MAX_EXPONENT){
+	mantissa = input_mantissa | 0x2000000000000 // insert 1 as first bit, mantissa is 1.b0b1b2..bn
+	if(exponent>=0){
+		if(exponent < MAX_EXPONENT){
+			if(exponent > MANTISSA_BITNUM){
+				number =(sign)*(( mantissa << exponent - MANTISSA_BITNUM ) )
+			}
+			else{
+				number = (sign)*(( mantissa >> MANTISSA_BITNUM - exponent ) )
+			}
+		}
+		else{ // exponent > 62 or exponent==0 (I assumed infinity, not NaN - to be discussed) 
 			if(sign>0)
 				number = maxInt64
 			else
 				number = minInt64
 		}
-		else{
-			if(exponent > MANTISSA_BITNUM){
-				number =(sign)*( mantissa << exponent - 52 )
-			}
-			else{
-				number = (sign)*( mantissa >> 52 - exponent )
-			}
-		}
 	}
-	else{ // negative exponent, round 
+	else if(exponent < 0){ 
+		number = 0
+	}
 	
-	}
