@@ -36,7 +36,6 @@ MAIN:
     or R4, R4, R8                       ; This is the explicit 1 added to the mantissa in IEEE-754 format
 
     ; Compute exponent
-    ;daddi R5, R5, -1                    ; the shift amount to get the exponent to the lowest bits
     dsrlv R5, R1, R5                    ; shifting 52 bits to the right to get the exponent to the lowest bits
     andi R5, R5, 0x07FF                 ; and-ing to get only the exponent
     daddi R5, R5, -1023                 ; subtracting bias
