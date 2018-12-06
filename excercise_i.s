@@ -56,7 +56,7 @@ MAIN:
     
     bnez R7, __PRINT_VALUE              ; if it is just print the result which is 0
 
-    slti R7, R5, 62                     ; else check is exponent is less or equal to 62
+    slti R7, R5, 62                     ; else check if exponent is less or equal to 62
 
     ; RAW hazard
 
@@ -87,7 +87,7 @@ __SHIFT_MANTISSA_LEFT:
     dsllv R25, R4, R28
 
 __APPLY_SIGN:
-    beqz R2, __PRINT_VALUE              ; if sign is zero the just print the value
+    beqz R2, __PRINT_VALUE              ; if sign is zero then just print the value
     xor R25, R25, R27                   ; else xor with all ones (that is equavalent to not)
     daddi R25, R25, 1                   ; and add 1 to the result
 
