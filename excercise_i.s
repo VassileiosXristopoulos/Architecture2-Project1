@@ -1,5 +1,8 @@
 .data
-A:  .word 0x4008000000000000
+A:  .word 0x3FEFFFFFFFFFFFFF
+    .word 0x3FE8000000000000
+    .word 0xBFFC000000000000
+    .word 0x4008000000000000
 
 CONTROL: .word 0x10000
 DATA: .word 0x10008
@@ -16,20 +19,24 @@ MAIN:
 
     ld R1, A($zero)                     ; Load the address of A. This is not going to be needed in the final code
 
+    ; This is just for testing cvt behaviour
+    ;mtc1 R1, F0
+    ;cvt.l.d F0, F0
+    ;mfc1 R25, F0
+    ;j __PRINT_VALUE
+
+    ; Set the mask for computing 2s complement
+    lui R27, 0xFFFF
+    ori R27, R27, 0xFFFF
+
     ; Get the sign
     daddui R2, $zero, 63                ; the shift amount to get the sign
     dsrlv R2, R1, R2
 
-    ; Compute mantissa mask
-    ; Load the upper 16 bits with FFFF
-    ; That includes the bits 15 to 31 but because MIPS does sign extension
-    ; that means bit from 16 to 63 are also going to be all Fs
-    lui R3, 0xFFFF
-    ori R3, R3, 0xF000                  ; or-ing to add an extra to F
-    dsrl R3, R3, 12                     ; and shifting to get a MASK of 52 Fs. That is our mantissa mask
-
     ; Get mantissa
-    and R4, R1, R3
+    dsll R4, R1, 12                     ; shifting 12 bits to the left to clear these bits
+    dsrl R4, R4, 12                     ; shifting back. now we have our mantissa
+
     daddui R8, $zero, 1
     daddui R5, $zero, 52                ; the shift amount to get the 1 in front of the mantissa
     dsllv R8, R8, R5                    ; shift 1 to the 53 bit position so we add that to our mantissa.
@@ -42,10 +49,13 @@ MAIN:
 
     slt R7, R5, $zero                   ; check if exponent is negative
     
-    ; NOTE(GeorgeLS): Here we have to add an instruction because branch evaluates
-    ; the registers at ID stage so we have a RAW hazard
+    ; zeroing out R25 which is our result register.
+    ; if the branch below is taken then the result will be 0.
+    ; also we put this instruction so as not to have RAW hazard
+    xor R25, R25, R25
     
-    bnez R7, __EXIT                     ; if it is the do something
+    bnez R7, __PRINT_VALUE              ; if it is just print the result which is 0
+
     slti R7, R5, 62                     ; else check is exponent is less or equal to 62
 
     ; RAW hazard
@@ -65,14 +75,21 @@ __COMPUTE_INTEGER:
     ; RAW hazard
     
     beqz R7, __SHIFT_MANTISSA_LEFT      ; if not then we shift the mantissa to the left
+
+__SHIFT_MANTISSA_RIGHT:
     daddui R28, $zero, 52               ; we load 52 because this is the mantissa size and we need to subtract from it
     dsub R28, R28, R5                   ; subtract exponent from 52. Thats the amount we need to shift the mantissa to the right
     dsrlv R25, R4, R28
-    j __PRINT_VALUE
+    j __APPLY_SIGN
 
 __SHIFT_MANTISSA_LEFT:
     daddi R28, R5, -52                  ; compute the amount we need to shift the mantissa to the left
     dsllv R25, R4, R28
+
+__APPLY_SIGN:
+    beqz R2, __PRINT_VALUE              ; if sign is zero the just print the value
+    xor R25, R25, R27                   ; else xor with all ones (that is equavalent to not)
+    daddi R25, R25, 1                   ; and add 1 to the result
 
 __PRINT_VALUE:
     sd R25, 0(R31)                      ; setting DATA
