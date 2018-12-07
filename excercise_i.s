@@ -1,11 +1,14 @@
 .data
-A:  .word 0x3FEFFFFFFFFFFFFF
+A:  .word 0x4008000000000000
+    .word 0x3FEFFFFFFFFFFFFF
     .word 0x3FE8000000000000
     .word 0xBFFC000000000000
-    .word 0x4008000000000000
+
+B:  .space 1200
+C:  .space 1200
 
 CONTROL: .word 0x10000
-DATA: .word 0x10008
+DATA:    .word 0x10008
 
 MAXINT64: .word 0x7FFFFFFFFFFFFFFF
 MININT64: .word 0x8000000000000000
@@ -18,6 +21,14 @@ MAIN:
     daddui R29, $zero, 2                ; mode for integer output
 
     ld R1, A($zero)                     ; Load the address of A. This is not going to be needed in the final code
+    
+    ; Counters initialization
+    xor R10, R10, R10                   ; This is our counter for (P)
+    xor R11, R11, R11                   ; This is our counter for (N)
+    xor R12, R12, R12                   ; This is our counter for (D)
+    xor R13, R13, R13                   ; This is our counter for (T)
+    xor R14, R14, R14                   ; This is our counter for (Z)
+    xor R15, R15, R15                   ; This is our counter for (I)
 
     ; This is just for testing cvt behaviour
     ;mtc1 R1, F0
@@ -62,11 +73,15 @@ MAIN:
 
     bnez R7, __COMPUTE_INTEGER          ; if it is then go to compute the integer
     beqz R2, __LOAD_MAXINT              ; else check if sign is zero and if it is load MAXINT
+
+__LOAD_MININT:
     ld R25, MININT64($zero)             ; else load MININT
+    daddui R13, R13, 1                  ; increase counter for (T)
     j __PRINT_VALUE
 
 __LOAD_MAXINT:
     ld R25, MAXINT64($zero)
+    daddui R13, R13, 1                  ; increase counter for (T)
     j __PRINT_VALUE
 
 __COMPUTE_INTEGER:
@@ -87,9 +102,13 @@ __SHIFT_MANTISSA_LEFT:
     dsllv R25, R4, R28
 
 __APPLY_SIGN:
-    beqz R2, __PRINT_VALUE              ; if sign is zero then just print the value
+    beqz R2, __INCREASE_N               ; if sign is zero then increase (N) and print the value
+    daddui R10, R10, 1                  ; increase counter for (P)
     xor R25, R25, R27                   ; else xor with all ones (that is equavalent to not)
     daddi R25, R25, 1                   ; and add 1 to the result
+
+__INCREASE_N:
+    daddui R11, R11, 1                  ; increase counter for (N)
 
 __PRINT_VALUE:
     sd R25, 0(R31)                      ; setting DATA
