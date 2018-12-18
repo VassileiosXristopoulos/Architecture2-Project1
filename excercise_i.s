@@ -174,11 +174,6 @@ C:  .space 1200
 
 .text
 MAIN:
-    
-    daddui R3, $zero, A                 ; Base address of A
-    daddui R17, $zero, B                ; Base address of B
-    daddui R18, $zero, C                ; Base address of C
-
     ; Counters initialization
     xor R10, R10, R10                   ; This is our counter for (P)
     xor R11, R11, R11                   ; This is our counter for (N)
@@ -278,9 +273,7 @@ __SHIFT_MANTISSA_LEFT:
 
 __APPLY_SIGN:
     beqz R2, __INCREASE_P
-    daddu R11, R11, R2                  ; increase (N) counter if sign is 1
-    xor R25, R25, R27                   ; else xor with all ones (that is equavalent to not)
-    daddi R25, R25, 1                   ; and add 1 to the result
+	dsub R25, $zero, R25				; else get the negative of this number
 	j __STORE_RESULT
 
 __INCREASE_P:
@@ -294,14 +287,12 @@ __MANIP_LESS_1:
     daddu R13, R13, R21                 ; increase (T) counter
 
 __STORE_RESULT:
-    daddu R21, R6, R17                  ; Compute address to store the result in B
-    sd R25, 0(R21)                      ; Storing converted integer
+    sd R25, B(R6)                      	; Storing converted integer
     mtc1 R1, F0                         ; Moving original hexadecimal to a FP register
     cvt.l.d F0, F0                      ; Converting the hexadecimal to integer using cvt
     mfc1 R1, F0                         ; Move converted number to an integer register
     dsub R1, R1, R25                    ; Subtract the converted number from the cvt converted number
-    daddu R21, R6, R18                  ; Compute address to store the result in C
-    sd R1, 0(R21)                       ; Store the result to C
+    sd R1, C(R6)                       ; Store the result to C
     
     bne R23, R16, __LOOP
 __LOOP_END:
