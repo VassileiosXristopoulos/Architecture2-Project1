@@ -9,13 +9,11 @@ T:  .asciiz "T = "
 Z:  .asciiz "Z = "
 I:  .asciiz "I = "
 
-RESULT_STR: .space 83
-
 MAXINT64: .word 0x7FFFFFFFFFFFFFFF
 MININT64: .word 0x8000000000000000
 MANTISSA_MASK: .word 0x000FFFFFFFFFFFFF
 MANTISSA_BIT_53: .word 0x0010000000000000
-TWOS_COMPLEMENT_MASK: .word 0xFFFFFFFFFFFFFFFF
+INFINITY: .word 0x7FF0000000000000
 
 .data
 A:	.word 0x04C8195E2ED1912E
@@ -186,41 +184,35 @@ MAIN:
 
     daddi R19, $zero, 0x07FF            ; The mask for getting the exponent. Used elsewhere too
 
-    ld R27, TWOS_COMPLEMENT_MASK($zero) ; Set the mask for computing 2s complement
-
     ld R22, MANTISSA_MASK($zero)        ; Set the mask for getting the mantissa
 
     xor R23, R23, R23                   ; This is our iterator 
 
     daddui R24, $zero, 52               ; Shift amount for getting the exponent. Also mantissa size
     
-    daddui R16, $zero, 150               ; The number of iterations
+    daddui R16, $zero, 150              ; The number of iterations
 
     daddui R9, $zero, 63                ; The shift amount to get the sign
 
 __LOOP:
-    dsll R6, R23, 3                     ; Compute offset in memory for double word (64 bits)
+	dsll R6, R23, 3                     ; Compute offset in memory for double word (64 bits)
     ld R1, A(R6)                        ; Load word
 
     daddui R23, R23, 1                  ; increase iterator
 
     dsll R25, R1, 1			            ; remove sign to check for zero input
 
-    dsrlv R2, R1, R9                    ; Get the sign
+	ld R5, INFINITY($zero)
 
-    beqz  R25, __NUMBER_ZERO		    ; check if input number is zero
+    beqz R25, __NUMBER_ZERO		    	; check if input number is zero
+
+    and R4, R1, R22                     ; Get mantissa
+
+	beq R25, R5, __HANDLE_INFINITY
 
     ; Get exponent
     dsrlv R5, R1, R24                   ; shifting 52 bits to the right to get the exponent to the lowest bits
     and R5, R5, R19                     ; and-ing to get only the exponent
-
-    and R4, R1, R22                     ; Get mantissa
-
-__HANDLE_INFINITY:
-    bne R5, R19, __COMPUTE_NUMBER		; check if exponent is all ones (infinity or NaN)
-	bnez R4, __COMPUTE_NUMBER			; if exponent all zeros and mantissa != 0 then continue
-    daddi R15, R15, 1					; else increase counter for infinity numbers
-    j __CHECK_SIGN_FOR_INFINITY         ; and check sign to load the appropriate number
   
 __COMPUTE_NUMBER:
     daddi R5, R5, -1023                 ; subtract bias
@@ -237,12 +229,14 @@ __COMPUTE_NUMBER:
     slti R7, R5, 63                     ; else check if exponent is less or equal to 62
 
 	or R4, R4, R8                       ; This is the explicit 1 added to the mantissa in IEEE-754 format
-    
+
+    dsrlv R2, R1, R9                    ; Get the sign
+
     bnez R7, __COMPUTE_INTEGER          ; if it is then go to compute the integer
 
 __CHECK_SIGN_FOR_INFINITY:
     beqz R2, __LOAD_MAXINT              ; else check if sign is zero and if it is load MAXINT
-    
+
 __LOAD_MININT:
     ld R25, MININT64($zero)             ; else load MININT
     daddui R13, R13, 1                  ; increase (T) counter
@@ -252,6 +246,10 @@ __LOAD_MAXINT:
     ld R25, MAXINT64($zero)
     daddui R13, R13, 1                  ; increase (T) counter 
     j __STORE_RESULT
+
+__HANDLE_INFINITY:
+    daddi R15, R15, 1					; else increase counter for infinity numbers
+    j __CHECK_SIGN_FOR_INFINITY         ; and check sign to load the appropriate number
 
 __NUMBER_ZERO:
    daddi R14, R14, 1			        ; increase (Z) counter
@@ -273,11 +271,12 @@ __SHIFT_MANTISSA_LEFT:
 
 __APPLY_SIGN:
     beqz R2, __INCREASE_P
-	dsub R25, $zero, R25				; else get the negative of this number
+	daddui R11, R11, 1					; increase (N) counter
+	dsub R25, $zero, R25
 	j __STORE_RESULT
 
 __INCREASE_P:
-    daddui R10, R10, 1                  ; increase (P) counter is sign is 0 
+    daddui R10, R10, 1               	; increase (P) counter is sign is 0 
     j __STORE_RESULT
 
 __MANIP_LESS_1:
@@ -292,8 +291,8 @@ __STORE_RESULT:
     cvt.l.d F0, F0                      ; Converting the hexadecimal to integer using cvt
     mfc1 R1, F0                         ; Move converted number to an integer register
     dsub R1, R1, R25                    ; Subtract the converted number from the cvt converted number
-    sd R1, C(R6)                       ; Store the result to C
-    
+    sd R1, C(R6)                       	; Store the result to C
+
     bne R23, R16, __LOOP
 __LOOP_END:
 	; Setting I/O
